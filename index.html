@@ -2,18 +2,23 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>6x6 OOXX</title>
+  <title>6x6 OOXX with AI</title>
   <style>
     body { font-family: sans-serif; text-align: center; padding: 2rem; }
     #board {
       display: grid;
-      grid-template-columns: repeat(6, 60px);
+      grid-template-columns: repeat(6, 1fr);
+      width: 380px;
       gap: 5px;
-      justify-content: center;
+      margin: auto;
     }
     button.cell {
-      width: 60px; height: 60px;
+      width: 60px;
+      height: 60px;
       font-size: 1.5rem;
+      padding: 0;
+      border: 1px solid #ccc;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -23,15 +28,10 @@
   <p id="status"></p>
 
   <script>
-    let board = Array(36).fill('');
-    let aiTable = [];
-
-    fetch('ai-table.json')
-      .then(res => res.json())
-      .then(data => {
-        aiTable = data;
-        render();
-      });
+    const SIZE = 6;
+    const board = Array(SIZE * SIZE).fill('');
+    let isPlayerTurn = true;
+    const aiTable = []; // 可用 JSON 加入對應資料
 
     function render() {
       const boardDiv = document.getElementById('board');
@@ -40,17 +40,18 @@
         const btn = document.createElement('button');
         btn.className = 'cell';
         btn.textContent = cell || '';
-        btn.disabled = cell !== '';
+        btn.disabled = cell !== '' || !isPlayerTurn;
         btn.onclick = () => handlePlayerMove(idx);
         boardDiv.appendChild(btn);
       });
-      document.getElementById('status').textContent = '';
     }
 
     function handlePlayerMove(index) {
-      if (board[index] !== '') return;
+      if (!isPlayerTurn || board[index] !== '') return;
       board[index] = 'X';
+      isPlayerTurn = false;
       render();
+      if (checkWin('X')) return;
       setTimeout(handleAiMove, 300);
     }
 
@@ -60,9 +61,61 @@
       const aiMove = match ? match.move : board.findIndex(c => c === '');
       if (aiMove >= 0) {
         board[aiMove] = 'O';
+        render();
+        if (!checkWin('O')) {
+          isPlayerTurn = true;
+          render();
+        }
       }
-      render();
     }
+
+    function checkWin(player) {
+      const get = (r, c) => (r >= 0 && r < SIZE && c >= 0 && c < SIZE)
+        ? board[r * SIZE + c]
+        : null;
+
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          if (
+            get(r, c) === player &&
+            get(r, c+1) === player &&
+            get(r, c+2) === player &&
+            get(r, c+3) === player &&
+            get(r, c+4) === player
+          ) return win(player);
+          if (
+            get(r, c) === player &&
+            get(r+1, c) === player &&
+            get(r+2, c) === player &&
+            get(r+3, c) === player &&
+            get(r+4, c) === player
+          ) return win(player);
+          if (
+            get(r, c) === player &&
+            get(r+1, c+1) === player &&
+            get(r+2, c+2) === player &&
+            get(r+3, c+3) === player &&
+            get(r+4, c+4) === player
+          ) return win(player);
+          if (
+            get(r, c) === player &&
+            get(r+1, c-1) === player &&
+            get(r+2, c-2) === player &&
+            get(r+3, c-3) === player &&
+            get(r+4, c-4) === player
+          ) return win(player);
+        }
+      }
+      return false;
+    }
+
+    function win(player) {
+      document.getElementById('status').textContent = `${player} wins!`;
+      document.querySelectorAll('.cell').forEach(btn => btn.disabled = true);
+      return true;
+    }
+
+    render();
   </script>
 </body>
 </html>
