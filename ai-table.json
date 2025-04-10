@@ -1,0 +1,6 @@
+[
+  { "state": "XOX-O--O-", "move": 3 },
+  { "state": "XO--X--O-", "move": 5 },
+  { "state": "---------", "move": 0 },
+  { "state": "X--------", "move": 4 }
+]

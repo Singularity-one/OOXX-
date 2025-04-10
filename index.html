@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI OOXX</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 2rem; }
+    #board { display: grid; grid-template-columns: repeat(3, 80px); gap: 10px; justify-content: center; }
+    button.cell {
+      width: 80px; height: 80px;
+      font-size: 2rem; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>Play OOXX with AI</h1>
+  <div id="board"></div>
+  <p id="status"></p>
+
+  <script>
+    let board = Array(9).fill('');
+    let aiTable = [];
+
+    // 初始化
+    fetch('ai-table.json')
+      .then(res => res.json())
+      .then(data => {
+        aiTable = data;
+        render();
+      });
+
+    function render() {
+      const boardDiv = document.getElementById('board');
+      boardDiv.innerHTML = '';
+      board.forEach((cell, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'cell';
+        btn.textContent = cell || '';
+        btn.disabled = cell !== '';
+        btn.onclick = () => handlePlayerMove(idx);
+        boardDiv.appendChild(btn);
+      });
+      document.getElementById('status').textContent = '';
+    }
+
+    function handlePlayerMove(index) {
+      if (board[index] !== '') return;
+      board[index] = 'X';
+      render();
+      setTimeout(handleAiMove, 300);
+    }
+
+    function handleAiMove() {
+      const state = board.join('');
+      const match = aiTable.find(row => row.state === state);
+      const aiMove = match ? match.move : board.findIndex(c => c === '');
+
+      if (aiMove >= 0) {
+        board[aiMove] = 'O';
+      }
+      render();
+      checkGameOver();
+    }
+
+    function checkGameOver() {
+      const lines = [
+        [0,1,2],[3,4,5],[6,7,8], // rows
+        [0,3,6],[1,4,7],[2,5,8], // cols
+        [0,4,8],[2,4,6]          // diags
+      ];
+
+      for (const [a,b,c] of lines) {
+        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+          document.getElementById('status').textContent = `${board[a]} wins!`;
+          disableBoard();
+          return;
+        }
+      }
+
+      if (board.every(cell => cell)) {
+        document.getElementById('status').textContent = "It's a draw!";
+        disableBoard();
+      }
+    }
+
+    function disableBoard() {
+      document.querySelectorAll('.cell').forEach(btn => btn.disabled = true);
+    }
+  </script>
+</body>
+</html>
