@@ -2,36 +2,98 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>6x6 OOXX with AI</title>
+  <title>6x6 OOXX (3 Players / AI)</title>
   <style>
-    body { font-family: sans-serif; text-align: center; padding: 2rem; }
+    body { font-family: sans-serif; text-align: center; padding: 1rem; }
     #board {
       display: grid;
       grid-template-columns: repeat(6, 1fr);
       width: 380px;
       gap: 5px;
-      margin: auto;
+      margin: 1rem auto;
     }
     button.cell {
       width: 60px;
       height: 60px;
       font-size: 1.5rem;
-      padding: 0;
-      border: 1px solid #ccc;
-      cursor: pointer;
     }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
-  <h1>Play 6x6 OOXX with AI</h1>
-  <div id="board"></div>
-  <p id="status"></p>
+  <h1>6x6 OOXX – Player Select</h1>
+
+  <div id="setup">
+    <label>玩家人數 (1~3): <input type="number" id="playerCount" min="1" max="3" value="1"></label>
+    <br><br>
+    <div id="roleSelect"></div>
+    <button onclick="startGame()">開始遊戲</button>
+  </div>
+
+  <div id="game" class="hidden">
+    <h2 id="turnInfo"></h2>
+    <div id="board"></div>
+    <p id="status"></p>
+  </div>
 
   <script>
     const SIZE = 6;
+    const roles = ['O', 'X', '△'];
     const board = Array(SIZE * SIZE).fill('');
-    let isPlayerTurn = true;
-    const aiTable = []; // 可用 JSON 加入對應資料
+    const isHuman = { 'O': false, 'X': false, '△': false };
+    const playersOrder = ['O', 'X', '△'];
+    let currentPlayerIndex = 0;
+    let gameOver = false;
+
+    // 動態生成角色選單
+    document.getElementById('playerCount').addEventListener('input', () => {
+      const count = parseInt(document.getElementById('playerCount').value);
+      const container = document.getElementById('roleSelect');
+      container.innerHTML = '';
+      const selectedRoles = new Set();
+
+      for (let i = 0; i < count; i++) {
+        const select = document.createElement('select');
+        select.name = `player${i}`;
+        roles.forEach(r => {
+          const option = document.createElement('option');
+          option.value = r;
+          option.textContent = r;
+          select.appendChild(option);
+        });
+        select.onchange = () => {
+          // 防止重複選角色
+          const values = [...container.querySelectorAll('select')].map(s => s.value);
+          const duplicates = values.filter((v, i, arr) => arr.indexOf(v) !== i);
+          if (duplicates.length > 0) alert("每位玩家必須選不同角色！");
+        };
+        container.appendChild(document.createTextNode(`玩家 ${i + 1} 控制角色：`));
+        container.appendChild(select);
+        container.appendChild(document.createElement('br'));
+      }
+    });
+
+    // 初始化選單
+    document.getElementById('playerCount').dispatchEvent(new Event('input'));
+
+    function startGame() {
+      const selects = document.querySelectorAll('#roleSelect select');
+      const selected = new Set();
+      selects.forEach(sel => {
+        const role = sel.value;
+        if (selected.has(role)) {
+          alert("不能重複選角色！");
+          return;
+        }
+        selected.add(role);
+        isHuman[role] = true;
+      });
+
+      document.getElementById('setup').classList.add('hidden');
+      document.getElementById('game').classList.remove('hidden');
+      render();
+      nextTurn();
+    }
 
     function render() {
       const boardDiv = document.getElementById('board');
@@ -39,40 +101,49 @@
       board.forEach((cell, idx) => {
         const btn = document.createElement('button');
         btn.className = 'cell';
-        btn.textContent = cell || '';
-        btn.disabled = cell !== '' || !isPlayerTurn;
-        btn.onclick = () => handlePlayerMove(idx);
+        btn.textContent = cell;
+        btn.disabled = cell !== '' || gameOver || !isHuman[playersOrder[currentPlayerIndex]];
+        btn.onclick = () => handleMove(idx);
         boardDiv.appendChild(btn);
       });
+
+      document.getElementById('turnInfo').textContent =
+        gameOver ? '' : `輪到：${playersOrder[currentPlayerIndex]}`;
     }
 
-    function handlePlayerMove(index) {
-      if (!isPlayerTurn || board[index] !== '') return;
-      board[index] = 'X';
-      isPlayerTurn = false;
+    function handleMove(index) {
+      if (gameOver || board[index] !== '') return;
+      const player = playersOrder[currentPlayerIndex];
+      board[index] = player;
       render();
-      if (checkWin('X')) return;
-      setTimeout(handleAiMove, 300);
+      if (checkWin(player)) return;
+      nextTurn();
     }
 
-    function handleAiMove() {
-      const state = board.join('');
-      const match = aiTable.find(row => row.state === state);
-      const aiMove = match ? match.move : board.findIndex(c => c === '');
-      if (aiMove >= 0) {
-        board[aiMove] = 'O';
+    function aiMove() {
+      const player = playersOrder[currentPlayerIndex];
+      // 簡單 AI：隨機下第一個空格
+      const idx = board.findIndex(cell => cell === '');
+      if (idx !== -1) {
+        board[idx] = player;
         render();
-        if (!checkWin('O')) {
-          isPlayerTurn = true;
-          render();
+        if (!checkWin(player)) {
+          nextTurn();
         }
       }
     }
 
+    function nextTurn() {
+      currentPlayerIndex = (currentPlayerIndex + 1) % 3;
+      render();
+      if (!isHuman[playersOrder[currentPlayerIndex]] && !gameOver) {
+        setTimeout(aiMove, 500);
+      }
+    }
+
     function checkWin(player) {
-      const get = (r, c) => (r >= 0 && r < SIZE && c >= 0 && c < SIZE)
-        ? board[r * SIZE + c]
-        : null;
+      const get = (r, c) =>
+        r >= 0 && r < SIZE && c >= 0 && c < SIZE ? board[r * SIZE + c] : null;
 
       for (let r = 0; r < SIZE; r++) {
         for (let c = 0; c < SIZE; c++) {
@@ -110,12 +181,11 @@
     }
 
     function win(player) {
-      document.getElementById('status').textContent = `${player} wins!`;
+      document.getElementById('status').textContent = `${player} 勝利！`;
+      gameOver = true;
       document.querySelectorAll('.cell').forEach(btn => btn.disabled = true);
       return true;
     }
-
-    render();
   </script>
 </body>
 </html>
